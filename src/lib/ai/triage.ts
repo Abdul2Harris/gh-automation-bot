@@ -66,3 +66,17 @@ export function parseTriageResult(value: unknown): TriageResult {
   }
   return parsed.data;
 }
+
+export function applyPriorityOverrides(
+  event: NormalizedGitHubEvent,
+  result: TriageResult,
+): TriageResult {
+  if (event.kind === "push") return result;
+
+  const item = event.kind === "issue.opened" ? event.issue : event.pullRequest;
+  const content = `${item.title}\n${item.body ?? ""}`;
+
+  return /critical/i.test(content)
+    ? { ...result, priority: "HIGH" }
+    : result;
+}

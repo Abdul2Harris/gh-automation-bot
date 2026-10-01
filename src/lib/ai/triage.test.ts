@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { buildTriagePrompt, parseTriageResult, TriageNotApplicableError } from "./triage";
+import { applyPriorityOverrides, buildTriagePrompt, parseTriageResult, TriageNotApplicableError } from "./triage";
 import type { NormalizedGitHubEvent } from "@/lib/events/normalize-github-event";
 
 const issueEvent: NormalizedGitHubEvent = {
@@ -41,5 +41,33 @@ describe("Gemini triage", () => {
   it("does not triage push events", () => {
     const push = { ...issueEvent, kind: "push", push: {} } as unknown as NormalizedGitHubEvent;
     assert.throws(() => buildTriagePrompt(push), TriageNotApplicableError);
+  });
+
+  it("overrides Gemini priority when title or body contains critical", () => {
+    const result = applyPriorityOverrides(issueEvent, {
+      summary: "The mobile layout overlaps.",
+      priority: "MEDIUM",
+      suggestedLabels: ["ui"],
+      githubComment: "The mobile layout needs review.",
+      slackMessage: "A mobile layout issue was reported.",
+    });
+
+    assert.equal(result.priority, "HIGH");
+  });
+
+  it("keeps Gemini priority when critical is absent", () => {
+    const event = {
+      ...issueEvent,
+      issue: { ...issueEvent.issue, title: "Mobile layout overlap", body: "Occurs on small screens." },
+    };
+    const result = applyPriorityOverrides(event, {
+      summary: "The mobile layout overlaps.",
+      priority: "MEDIUM",
+      suggestedLabels: ["ui"],
+      githubComment: "The mobile layout needs review.",
+      slackMessage: "A mobile layout issue was reported.",
+    });
+
+    assert.equal(result.priority, "MEDIUM");
   });
 });

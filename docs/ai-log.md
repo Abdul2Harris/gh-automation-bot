@@ -32,6 +32,7 @@ Do not invent entries. Add notes only when something meaningful happens.
 - 2026-10-01: Simplified dashboard failure presentation after live usage. Removed the persistent failure warning banner, kept the Actions tab count focused on total actions, and added a latest-failed indicator only when the newest action failed.
 - 2026-10-01: Updated the Rules table to show whether GitHub comment and Slack actions use AI-generated or custom content, without exposing the configured message bodies to the client.
 - 2026-10-01: Added full rule editing and optimistic dashboard updates. Create, edit, enable/disable, and delete operations update local UI state immediately and roll back on API failure, while database access, same-origin protection, ownership checks, and Zod validation remain server-side. Editing preserves existing rule-action records by action type so historical attempts keep their links.
+- 2026-10-02: Added a deterministic triage priority override after live multi-repository testing showed Gemini classifying a critical UI issue as medium. Issue or pull-request title/body containing `critical` now forces `HIGH`; other priorities remain Gemini suggestions.
 
 ## Developer Decisions
 
