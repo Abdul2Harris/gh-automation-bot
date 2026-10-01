@@ -3,7 +3,7 @@ import { apiErrorResponse, ApiError } from "@/lib/api/errors";
 import { requireSameOrigin } from "@/lib/api/same-origin";
 import { getCurrentUser } from "@/lib/auth/session";
 import { updateRuleSchema } from "@/lib/rules/rule-input";
-import { deleteRule, setRuleEnabled } from "@/lib/rules/rule-management";
+import { deleteRule, setRuleEnabled, updateRule } from "@/lib/rules/rule-management";
 
 async function authorizedUser() {
   const user = await getCurrentUser();
@@ -18,7 +18,11 @@ export async function PATCH(request: Request, context: RuleRouteContext) {
     requireSameOrigin(request);
     const [user, { ruleId }] = await Promise.all([authorizedUser(), context.params]);
     const input = updateRuleSchema.parse(await request.json());
-    await setRuleEnabled(user.id, ruleId, input.isEnabled);
+    if ("isEnabled" in input) {
+      await setRuleEnabled(user.id, ruleId, input.isEnabled);
+    } else {
+      await updateRule(user.id, ruleId, input);
+    }
     return NextResponse.json({ updated: true });
   } catch (error) {
     return apiErrorResponse(error);

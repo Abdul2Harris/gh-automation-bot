@@ -5,11 +5,31 @@ import { getServerEnv } from "@/lib/env";
 
 const RECENT_ROW_LIMIT = 100;
 
-function actionContentMode(type: string, config: unknown) {
+function actionContentMode(type: string, config: unknown): "AI" | "CUSTOM" | null {
   if (type !== "COMMENT" && type !== "SLACK_NOTIFICATION") return null;
   return typeof config === "object" && config !== null && "mode" in config && config.mode === "AI"
     ? "AI"
     : "CUSTOM";
+}
+
+function actionDisplayConfig(type: string, config: unknown) {
+  const value = typeof config === "object" && config !== null ? config : {};
+  return {
+    type,
+    contentMode: actionContentMode(type, config),
+    labels:
+      type === "ADD_LABEL" && "labels" in value && Array.isArray(value.labels)
+        ? value.labels.filter((label): label is string => typeof label === "string")
+        : [],
+    commentBody:
+      type === "COMMENT" && "body" in value && typeof value.body === "string"
+        ? value.body
+        : null,
+    slackMessage:
+      type === "SLACK_NOTIFICATION" && "message" in value && typeof value.message === "string"
+        ? value.message
+        : null,
+  };
 }
 
 export async function getDashboardActivity(userId: string) {
@@ -74,7 +94,7 @@ export async function getDashboardActivity(userId: string) {
         orderBy: { createdAt: "desc" },
         take: RECENT_ROW_LIMIT,
         select: {
-          id: true, name: true, isEnabled: true, trigger: true, matchField: true,
+          id: true, installationId: true, repositoryId: true, name: true, isEnabled: true, trigger: true, matchField: true,
           matchValue: true, createdAt: true,
           actions: { orderBy: { position: "asc" }, select: { type: true, config: true } },
           repository: { select: { fullName: true } },
@@ -129,16 +149,15 @@ export async function getDashboardActivity(userId: string) {
     })),
     rules: rules.map((rule) => ({
       id: rule.id,
+      installationId: rule.installationId,
+      repositoryId: rule.repositoryId,
       name: rule.name,
       isEnabled: rule.isEnabled,
       trigger: rule.trigger,
       matchField: rule.matchField,
       matchValue: rule.matchValue,
       actionTypes: rule.actions.map((action) => action.type),
-      actionDetails: rule.actions.map((action) => ({
-        type: action.type,
-        contentMode: actionContentMode(action.type, action.config),
-      })),
+      actionDetails: rule.actions.map((action) => actionDisplayConfig(action.type, action.config)),
       createdAt: rule.createdAt.toISOString(),
       scope: rule.repository?.fullName ?? `${rule.installation.accountLogin} (all repositories)`,
     })),

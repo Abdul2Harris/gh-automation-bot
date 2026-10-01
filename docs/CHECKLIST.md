@@ -77,6 +77,7 @@ Use this checklist to track assignment requirements and implementation progress 
 - [x] Show failures clearly
 - [x] Show configured rules
 - [x] Add rule configuration UI
+- [x] Add rule editing and optimistic rule updates
 - [x] Use Ant Design tables for event/action history where appropriate
 - [x] Use Ant Design forms and controls for rule configuration
 - [x] Ensure secrets are never exposed to client components

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { createRuleSchema } from "./rule-input";
+import { createRuleSchema, updateRuleSchema } from "./rule-input";
 
 const baseRule = {
   installationId: "installation-1",
@@ -75,5 +75,18 @@ describe("createRuleSchema", () => {
       actions: [{ type: "SLACK_NOTIFICATION", config: { mode: "AI" } }],
     });
     assert.equal(result.success, false);
+  });
+});
+
+describe("updateRuleSchema", () => {
+  it("accepts an enable toggle", () => {
+    assert.equal(updateRuleSchema.safeParse({ isEnabled: false }).success, true);
+  });
+
+  it("accepts a complete rule edit", () => {
+    assert.equal(updateRuleSchema.safeParse({
+      ...baseRule,
+      actions: [{ type: "COMMENT", config: { mode: "AI" } }],
+    }).success, true);
   });
 });

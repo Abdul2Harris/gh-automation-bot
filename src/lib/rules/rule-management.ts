@@ -23,7 +23,7 @@ async function verifyRuleAccess(userId: string, ruleId: string) {
   if (!rule) throw new ApiError(404, "Rule not found");
 }
 
-export async function createRule(userId: string, input: CreateRuleInput) {
+async function validateRuleTarget(userId: string, input: CreateRuleInput) {
   await verifyInstallationAccess(userId, input.installationId);
 
   if (input.repositoryId) {
@@ -42,12 +42,15 @@ export async function createRule(userId: string, input: CreateRuleInput) {
   }
 
   if (
-    input.actions.some(
-      (action) => "mode" in action.config && action.config.mode === "AI",
-    ) && !getServerEnv().GEMINI_API_KEY
+    input.actions.some((action) => "mode" in action.config && action.config.mode === "AI") &&
+    !getServerEnv().GEMINI_API_KEY
   ) {
     throw new ApiError(400, "Gemini API key is not configured");
   }
+}
+
+export async function createRule(userId: string, input: CreateRuleInput) {
+  await validateRuleTarget(userId, input);
 
   return prisma.automationRule.create({
     data: {
@@ -68,6 +71,52 @@ export async function createRule(userId: string, input: CreateRuleInput) {
     },
     select: { id: true },
   });
+}
+
+export async function updateRule(userId: string, ruleId: string, input: CreateRuleInput) {
+  await Promise.all([
+    verifyRuleAccess(userId, ruleId),
+    validateRuleTarget(userId, input),
+  ]);
+
+  const existingActions = await prisma.automationRuleAction.findMany({
+    where: { ruleId },
+    select: { id: true, type: true },
+  });
+  const nextTypes = new Set(input.actions.map((action) => action.type));
+
+  await prisma.$transaction([
+    prisma.automationRule.update({
+      where: { id: ruleId },
+      data: {
+        installationId: input.installationId,
+        repositoryId: input.repositoryId,
+        name: input.name,
+        trigger: input.trigger,
+        matchField: input.trigger === "PUSH" ? null : input.matchField,
+        matchValue: input.trigger === "PUSH" ? null : input.matchValue,
+      },
+    }),
+    prisma.automationRuleAction.deleteMany({
+      where: { ruleId, type: { notIn: [...nextTypes] } },
+    }),
+    ...input.actions.map((action, position) => {
+      const existing = existingActions.find((item) => item.type === action.type);
+      return existing
+        ? prisma.automationRuleAction.update({
+            where: { id: existing.id },
+            data: { config: action.config as Prisma.InputJsonObject, position },
+          })
+        : prisma.automationRuleAction.create({
+            data: {
+              ruleId,
+              type: action.type,
+              config: action.config as Prisma.InputJsonObject,
+              position,
+            },
+          });
+    }),
+  ]);
 }
 
 export async function setRuleEnabled(userId: string, ruleId: string, isEnabled: boolean) {

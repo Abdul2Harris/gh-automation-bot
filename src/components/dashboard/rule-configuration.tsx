@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { EditOutlined } from "@ant-design/icons";
 import {
   Alert,
   Button,
@@ -38,18 +38,48 @@ function readable(value: string) {
   return value.toLowerCase().replaceAll("_", " ");
 }
 
-async function apiRequest(url: string, init: RequestInit) {
+async function apiRequest<T>(url: string, init: RequestInit) {
   const response = await fetch(url, {
     ...init,
     headers: { "content-type": "application/json", ...init.headers },
   });
-  const data = (await response.json()) as { error?: string };
+  const data = (await response.json()) as T & { error?: string };
   if (!response.ok) throw new Error(data.error ?? "Request failed");
+  return data;
+}
+
+function actionPayload(values: FormValues) {
+  return values.actionTypes.map((type) => {
+    if (type === "ADD_LABEL") {
+      return { type, config: { labels: (values.labels ?? "").split(",").map((label) => label.trim()).filter(Boolean) } };
+    }
+    if (type === "COMMENT") {
+      return values.commentMode === "AI"
+        ? { type, config: { mode: "AI" } }
+        : { type, config: { mode: "CUSTOM", body: values.commentBody ?? "" } };
+    }
+    return values.slackMode === "AI"
+      ? { type, config: { mode: "AI" } }
+      : { type, config: { mode: "CUSTOM", ...(values.slackMessage?.trim() ? { message: values.slackMessage.trim() } : {}) } };
+  });
+}
+
+function rulePayload(values: FormValues) {
+  return {
+    name: values.name,
+    installationId: values.installationId,
+    repositoryId: values.repositoryId ?? null,
+    trigger: values.trigger,
+    matchField: values.trigger === "PUSH" ? null : values.matchField ?? null,
+    matchValue: values.trigger === "PUSH" ? null : values.matchValue?.trim() || null,
+    actions: actionPayload(values),
+  };
 }
 
 export function RuleConfiguration({ data }: { data: DashboardActivity }) {
-  const router = useRouter();
   const [form] = Form.useForm<FormValues>();
+  const [rules, setRules] = useState(data.rules);
+  const [editingRule, setEditingRule] = useState<RuleRow | null>(null);
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -63,40 +93,111 @@ export function RuleConfiguration({ data }: { data: DashboardActivity }) {
     [data.repositories, installationId],
   );
 
-  async function create(values: FormValues) {
+  function displayRule(id: string, values: FormValues, existing?: RuleRow): RuleRow {
+    const repository = data.repositories.find((item) => item.id === values.repositoryId);
+    const installation = data.installations.find((item) => item.id === values.installationId);
+    const actions = actionPayload(values);
+
+    return {
+      id,
+      installationId: values.installationId,
+      repositoryId: values.repositoryId ?? null,
+      name: values.name,
+      isEnabled: existing?.isEnabled ?? true,
+      trigger: values.trigger,
+      matchField: values.trigger === "PUSH" ? null : values.matchField ?? null,
+      matchValue: values.trigger === "PUSH" ? null : values.matchValue?.trim() || null,
+      actionTypes: actions.map((action) => action.type),
+      actionDetails: actions.map((action) => ({
+        type: action.type,
+        contentMode:
+          action.type === "COMMENT"
+            ? values.commentMode
+            : action.type === "SLACK_NOTIFICATION"
+              ? values.slackMode
+              : null,
+        labels: action.type === "ADD_LABEL" ? action.config.labels : [],
+        commentBody:
+          action.type === "COMMENT" && values.commentMode === "CUSTOM"
+            ? values.commentBody ?? ""
+            : null,
+        slackMessage:
+          action.type === "SLACK_NOTIFICATION" && values.slackMode === "CUSTOM"
+            ? values.slackMessage?.trim() || null
+            : null,
+      })),
+      createdAt: existing?.createdAt ?? new Date().toISOString(),
+      scope: repository?.fullName ?? `${installation?.accountLogin ?? "Unknown account"} (all repositories)`,
+    };
+  }
+
+  function openCreate() {
+    setEditingRule(null);
+    setError(null);
+    form.resetFields();
+    form.setFieldsValue({
+      trigger: "ISSUE_OPENED",
+      actionTypes: ["ADD_LABEL"],
+      commentMode: "CUSTOM",
+      slackMode: "CUSTOM",
+    });
+    setOpen(true);
+  }
+
+  function openEdit(rule: RuleRow) {
+    const label = rule.actionDetails.find((action) => action.type === "ADD_LABEL");
+    const comment = rule.actionDetails.find((action) => action.type === "COMMENT");
+    const slack = rule.actionDetails.find((action) => action.type === "SLACK_NOTIFICATION");
+    setEditingRule(rule);
+    setError(null);
+    form.setFieldsValue({
+      name: rule.name,
+      installationId: rule.installationId,
+      repositoryId: rule.repositoryId ?? undefined,
+      trigger: rule.trigger,
+      matchField: rule.matchField ?? undefined,
+      matchValue: rule.matchValue ?? undefined,
+      actionTypes: rule.actionTypes,
+      labels: label?.labels.join(", "),
+      commentMode: comment?.contentMode ?? "CUSTOM",
+      commentBody: comment?.commentBody ?? undefined,
+      slackMode: slack?.contentMode ?? "CUSTOM",
+      slackMessage: slack?.slackMessage ?? undefined,
+    });
+    setOpen(true);
+  }
+
+  async function save(values: FormValues) {
     setSubmitting(true);
     setError(null);
+    const previousRules = rules;
+    const optimisticId = editingRule?.id ?? `pending-${crypto.randomUUID()}`;
+    const optimistic = displayRule(optimisticId, values, editingRule ?? undefined);
+    setRules((current) =>
+      editingRule
+        ? current.map((rule) => (rule.id === editingRule.id ? optimistic : rule))
+        : [optimistic, ...current],
+    );
+    setOpen(false);
+
     try {
-      const actions = values.actionTypes.map((type) => {
-        if (type === "ADD_LABEL") {
-          return { type, config: { labels: (values.labels ?? "").split(",").map((label) => label.trim()).filter(Boolean) } };
-        }
-        if (type === "COMMENT") {
-          return values.commentMode === "AI"
-            ? { type, config: { mode: "AI" } }
-            : { type, config: { mode: "CUSTOM", body: values.commentBody ?? "" } };
-        }
-        return values.slackMode === "AI"
-          ? { type, config: { mode: "AI" } }
-          : { type, config: { mode: "CUSTOM", ...(values.slackMessage?.trim() ? { message: values.slackMessage.trim() } : {}) } };
-      });
-      await apiRequest("/api/rules", {
-        method: "POST",
-        body: JSON.stringify({
-          name: values.name,
-          installationId: values.installationId,
-          repositoryId: values.repositoryId ?? null,
-          trigger: values.trigger,
-          matchField: values.trigger === "PUSH" ? null : values.matchField ?? null,
-          matchValue: values.trigger === "PUSH" ? null : values.matchValue?.trim() || null,
-          actions,
-        }),
-      });
-      setOpen(false);
+      const response = await apiRequest<{ rule?: { id: string }; updated?: boolean }>(
+        editingRule ? `/api/rules/${editingRule.id}` : "/api/rules",
+        {
+          method: editingRule ? "PATCH" : "POST",
+          body: JSON.stringify(rulePayload(values)),
+        },
+      );
+      if (!editingRule && response.rule) {
+        setRules((current) => current.map((rule) =>
+          rule.id === optimisticId ? { ...rule, id: response.rule!.id } : rule,
+        ));
+      }
       form.resetFields();
-      router.refresh();
+      setEditingRule(null);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Rule could not be created");
+      setRules(previousRules);
+      setError(cause instanceof Error ? cause.message : `Rule could not be ${editingRule ? "updated" : "created"}`);
     } finally {
       setSubmitting(false);
     }
@@ -104,20 +205,26 @@ export function RuleConfiguration({ data }: { data: DashboardActivity }) {
 
   async function setEnabled(rule: RuleRow, isEnabled: boolean) {
     setError(null);
+    setRules((current) => current.map((item) => item.id === rule.id ? { ...item, isEnabled } : item));
     try {
-      await apiRequest(`/api/rules/${rule.id}`, { method: "PATCH", body: JSON.stringify({ isEnabled }) });
-      router.refresh();
+      await apiRequest<{ updated: boolean }>(`/api/rules/${rule.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ isEnabled }),
+      });
     } catch (cause) {
+      setRules((current) => current.map((item) => item.id === rule.id ? rule : item));
       setError(cause instanceof Error ? cause.message : "Rule could not be updated");
     }
   }
 
   async function remove(rule: RuleRow) {
     setError(null);
+    const previousRules = rules;
+    setRules((current) => current.filter((item) => item.id !== rule.id));
     try {
-      await apiRequest(`/api/rules/${rule.id}`, { method: "DELETE" });
-      router.refresh();
+      await apiRequest<{ deleted: boolean }>(`/api/rules/${rule.id}`, { method: "DELETE" });
     } catch (cause) {
+      setRules(previousRules);
       setError(cause instanceof Error ? cause.message : "Rule could not be deleted");
     }
   }
@@ -143,21 +250,33 @@ export function RuleConfiguration({ data }: { data: DashboardActivity }) {
       ),
     },
     { title: "Enabled", key: "enabled", render: (_, rule) => <Switch checked={rule.isEnabled} onChange={(value) => void setEnabled(rule, value)} /> },
-    { title: "", key: "delete", width: 90, render: (_, rule) => <Popconfirm title="Delete this rule?" description="Existing action history will be kept." onConfirm={() => void remove(rule)}><Button danger type="text">Delete</Button></Popconfirm> },
+    {
+      title: "",
+      key: "controls",
+      width: 130,
+      render: (_, rule) => (
+        <div className="flex items-center gap-1">
+          <Button type="text" icon={<EditOutlined />} title="Edit rule" onClick={() => openEdit(rule)} />
+          <Popconfirm title="Delete this rule?" description="Existing action history will be kept." onConfirm={() => void remove(rule)}>
+            <Button danger type="text">Delete</Button>
+          </Popconfirm>
+        </div>
+      ),
+    },
   ];
 
   return (
     <div>
       <div className="mb-4 flex items-center justify-between gap-3">
-        <span className="text-sm text-slate-500">{data.rules.length} configured rules</span>
-        <Button type="primary" onClick={() => { setError(null); setOpen(true); }} disabled={data.installations.length === 0}>Create rule</Button>
+        <span className="text-sm text-slate-500">{rules.length} configured rules</span>
+        <Button type="primary" onClick={openCreate} disabled={data.installations.length === 0}>Create rule</Button>
       </div>
       {error ? <Alert className="mb-4" type="error" title={error} closable onClose={() => setError(null)} /> : null}
-      <Table rowKey="id" dataSource={data.rules} columns={columns} pagination={{ pageSize: 10, showSizeChanger: false }} scroll={{ x: 1000 }} />
+      <Table rowKey="id" dataSource={rules} columns={columns} pagination={{ pageSize: 10, showSizeChanger: false }} scroll={{ x: 1000 }} />
 
-      <Modal title="Create automation rule" open={open} onCancel={() => setOpen(false)} onOk={() => form.submit()} confirmLoading={submitting} okText="Create rule" width={680} destroyOnHidden>
+      <Modal title={editingRule ? "Edit automation rule" : "Create automation rule"} open={open} onCancel={() => { setOpen(false); setEditingRule(null); }} onOk={() => form.submit()} confirmLoading={submitting} okText={editingRule ? "Save changes" : "Create rule"} width={680} destroyOnHidden>
         {error ? <Alert className="mb-4" type="error" title={error} /> : null}
-        <Form form={form} layout="vertical" onFinish={(values) => void create(values)} initialValues={{ trigger: "ISSUE_OPENED", actionTypes: ["ADD_LABEL"], commentMode: "CUSTOM", slackMode: "CUSTOM" }}>
+        <Form form={form} layout="vertical" onFinish={(values) => void save(values)} initialValues={{ trigger: "ISSUE_OPENED", actionTypes: ["ADD_LABEL"], commentMode: "CUSTOM", slackMode: "CUSTOM" }}>
           <Form.Item name="name" label="Rule name" rules={[{ required: true }, { max: 100 }]}><Input placeholder="Critical issue response" /></Form.Item>
           <div className="grid gap-4 sm:grid-cols-2">
             <Form.Item name="installationId" label="GitHub account" rules={[{ required: true }]}><Select options={data.installations.map((item) => ({ label: item.accountLogin, value: item.id }))} onChange={() => form.setFieldValue("repositoryId", undefined)} /></Form.Item>

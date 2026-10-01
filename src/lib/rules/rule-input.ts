@@ -57,6 +57,9 @@ export const createRuleSchema = z
     }
   });
 
-export const updateRuleSchema = z.object({ isEnabled: z.boolean() });
+export const updateRuleSchema = z.union([
+  z.object({ isEnabled: z.boolean() }),
+  createRuleSchema,
+]);
 
 export type CreateRuleInput = z.infer<typeof createRuleSchema>;
