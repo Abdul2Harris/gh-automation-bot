@@ -55,18 +55,10 @@ export function buildSlackMessage(
   }
 
   if ("mode" in parsed.data && parsed.data.mode === "AI") {
-    if (!triage) {
+    if (!triage?.slackMessage) {
       throw new SlackAIContentUnavailableError("AI-generated Slack message is unavailable");
     }
-    const lines = [
-      `AI triage: ${triage.priority} priority`,
-      escapeSlackText(triage.summary),
-    ];
-    if (triage.suggestedLabels.length > 0) {
-      lines.push(`Suggested labels: ${triage.suggestedLabels.map(escapeSlackText).join(", ")}`);
-    }
-    lines.push(eventSummary(event));
-    return lines.join("\n");
+    return `${escapeSlackText(triage.slackMessage)}\n${eventSummary(event)}`;
   }
 
   const prefix = parsed.data.message
