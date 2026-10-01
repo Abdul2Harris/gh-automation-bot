@@ -28,6 +28,8 @@ Do not invent entries. Add notes only when something meaningful happens.
 - 2026-10-01: Rule comment and Slack actions now support either custom or AI-generated content while retaining backward compatibility with existing rule configuration. AI failure does not prevent custom actions from running, and failed AI-backed actions remain visible and manually retryable.
 - 2026-10-01: After live Gemini requests repeatedly returned HTTP 503, added three automatic retries with exponential backoff and jitter for transient HTTP 408, 429, and selected 5xx responses. Permanent client errors still fail immediately, and the existing five-attempt manual retry limit remains unchanged.
 - 2026-10-01: Added ordered Gemini model fallback after repeated production 503 responses. AI triage first tries `gemini-3.8-flash`, then `gemini-3.5-flash`, and finally `gemini-2.5-flash`; the successful model is persisted with the triage result.
+- 2026-10-01: Optimized Gemini fallback latency after live testing. Each retry cycle now attempts `3.8`, `3.5`, and `2.5` once before waiting with exponential backoff and repeating the complete model sequence.
+- 2026-10-01: Simplified dashboard failure presentation after live usage. Removed the persistent failure warning banner, kept the Actions tab count focused on total actions, and added a latest-failed indicator only when the newest action failed.
 
 ## Developer Decisions
 

@@ -10,7 +10,6 @@ import {
   CodeOutlined,
   DatabaseOutlined,
   ThunderboltOutlined,
-  WarningFilled,
 } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import type { DashboardActivity } from "@/lib/dashboard/activity";
@@ -298,23 +297,10 @@ function StatCard({ title, value, icon, iconBg, iconColor, alert }: StatCardProp
 
 export function ActivityDashboard({ data }: { data: DashboardActivity }) {
   const hasFailures = data.summary.failures > 0;
+  const latestActionFailed = data.actions[0]?.status === "FAILED";
 
   return (
     <>
-      {hasFailures ? (
-        <div className="mb-6 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3.5">
-          <WarningFilled className="mt-0.5 text-red-500" />
-          <div>
-            <p className="text-sm font-semibold text-red-700">
-              {data.summary.failures} failed action{data.summary.failures === 1 ? "" : "s"} need attention
-            </p>
-            <p className="mt-0.5 text-xs text-red-500">
-              Check the Actions tab to investigate the errors.
-            </p>
-          </div>
-        </div>
-      ) : null}
-
       <section className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard
           title="Repositories"
@@ -348,9 +334,9 @@ export function ActivityDashboard({ data }: { data: DashboardActivity }) {
       </section>
 
       <div className="rounded-xl border border-slate-200 bg-white shadow-xs">
-        <Tabs
-          defaultActiveKey={hasFailures ? "actions" : "events"}
-          className="px-5 pt-1"
+        <div className="px-5 pt-1">
+          <Tabs
+          defaultActiveKey={latestActionFailed ? "actions" : "events"}
           items={[
             {
               key: "events",
@@ -375,15 +361,14 @@ export function ActivityDashboard({ data }: { data: DashboardActivity }) {
                 <span className="flex items-center gap-1.5">
                   <ApiOutlined />
                   Actions
-                  {hasFailures ? (
-                    <span className="ml-1 rounded-full bg-red-100 px-1.5 py-0.5 text-xs text-red-600">
-                      {data.summary.failures} failed
+                  <span className="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">
+                    {data.summary.actions}
+                  </span>
+                  {latestActionFailed ? (
+                    <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-xs text-red-600">
+                      Latest failed
                     </span>
-                  ) : (
-                    <span className="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">
-                      {data.summary.actions}
-                    </span>
-                  )}
+                  ) : null}
                 </span>
               ),
               children: (
@@ -427,7 +412,8 @@ export function ActivityDashboard({ data }: { data: DashboardActivity }) {
               ),
             },
           ]}
-        />
+          />
+        </div>
       </div>
     </>
   );
