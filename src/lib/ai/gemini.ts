@@ -3,7 +3,6 @@ import "server-only";
 import { getServerEnv } from "@/lib/env";
 import {
   buildTriagePrompt,
-  applyPriorityOverrides,
   parseTriageResult,
   triageJsonSchema,
   type TriageResult,
@@ -86,13 +85,9 @@ export async function generateGeminiTriage(
   }
 
   try {
-    const generated = await runGeminiModelCycles((model) =>
+    return await runGeminiModelCycles((model) =>
       requestModelTriage(event, GEMINI_API_KEY, model),
     );
-    return {
-      ...generated,
-      result: applyPriorityOverrides(event, generated.result),
-    };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown Gemini failure";
     throw new GeminiRequestError(`All Gemini model cycles failed. Last error: ${message}`);
