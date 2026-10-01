@@ -67,21 +67,6 @@ export function parseTriageResult(value: unknown): TriageResult {
   return parsed.data;
 }
 
-export function parseTriageJson(output: string): TriageResult {
-  const trimmed = output.trim();
-  const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
-  const json = fenced?.[1] ?? trimmed;
-
-  try {
-    return parseTriageResult(JSON.parse(json));
-  } catch (error) {
-    if (error instanceof SyntaxError) {
-      throw new TriageResponseError("Gemini returned invalid JSON");
-    }
-    throw error;
-  }
-}
-
 export function applyPriorityOverrides(
   event: NormalizedGitHubEvent,
   result: TriageResult,

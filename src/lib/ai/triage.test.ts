@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { applyPriorityOverrides, buildTriagePrompt, parseTriageJson, parseTriageResult, TriageNotApplicableError } from "./triage";
+import { applyPriorityOverrides, buildTriagePrompt, parseTriageResult, TriageNotApplicableError } from "./triage";
 import type { NormalizedGitHubEvent } from "@/lib/events/normalize-github-event";
 
 const issueEvent: NormalizedGitHubEvent = {
@@ -36,20 +36,6 @@ describe("Gemini triage", () => {
 
   it("rejects invalid structured output", () => {
     assert.throws(() => parseTriageResult({ priority: "URGENT" }), /invalid triage response/i);
-  });
-
-  it("accepts structured JSON wrapped in a Markdown code fence", () => {
-    const result = parseTriageJson(`\`\`\`json
-      {
-        "summary": "A critical UI issue was reported.",
-        "priority": "HIGH",
-        "suggestedLabels": ["ui"],
-        "githubComment": "The UI issue needs review.",
-        "slackMessage": "A critical UI issue was reported."
-      }
-    \`\`\``);
-
-    assert.equal(result.priority, "HIGH");
   });
 
   it("does not triage push events", () => {

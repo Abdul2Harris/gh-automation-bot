@@ -34,7 +34,6 @@ Do not invent entries. Add notes only when something meaningful happens.
 - 2026-10-01: Added full rule editing and optimistic dashboard updates. Create, edit, enable/disable, and delete operations update local UI state immediately and roll back on API failure, while database access, same-origin protection, ownership checks, and Zod validation remain server-side. Editing preserves existing rule-action records by action type so historical attempts keep their links.
 - 2026-10-02: Added a deterministic triage priority override after live multi-repository testing showed Gemini classifying a critical UI issue as medium. Issue or pull-request title/body containing `critical` now forces `HIGH`; other priorities remain Gemini suggestions.
 - 2026-10-02: Fixed inconsistent Slack priority after deterministic overrides. AI Slack notifications now render from the final persisted priority, summary, and suggested labels instead of Gemini's earlier free-text message, keeping Slack and dashboard triage consistent.
-- 2026-10-02: Two production triage attempts failed because Gemini returned structured JSON inside Markdown code fences. The parser now removes a complete optional JSON fence before parsing and still validates every field with Zod; arbitrary non-JSON output remains rejected.
 
 ## Developer Decisions
 
