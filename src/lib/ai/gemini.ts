@@ -8,6 +8,7 @@ import {
   type TriageResult,
 } from "@/lib/ai/triage";
 import type { NormalizedGitHubEvent } from "@/lib/events/normalize-github-event";
+import { fetchWithTransientRetry } from "@/lib/ai/request-retry";
 
 export class GeminiSetupError extends Error {}
 export class GeminiRequestError extends Error {}
@@ -28,24 +29,27 @@ export async function generateGeminiTriage(
     throw new GeminiSetupError("Gemini API key is not configured");
   }
 
-  const response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-goog-api-key": GEMINI_API_KEY,
-    },
-    body: JSON.stringify({
-      model: GEMINI_MODEL,
-      store: false,
-      input: buildTriagePrompt(event),
-      response_format: {
-        type: "text",
-        mime_type: "application/json",
-        schema: triageJsonSchema,
+  const response = await fetchWithTransientRetry(
+    "https://generativelanguage.googleapis.com/v1beta/interactions",
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-goog-api-key": GEMINI_API_KEY,
       },
-    }),
-    signal: AbortSignal.timeout(15_000),
-  });
+      body: JSON.stringify({
+        model: GEMINI_MODEL,
+        store: false,
+        input: buildTriagePrompt(event),
+        response_format: {
+          type: "text",
+          mime_type: "application/json",
+          schema: triageJsonSchema,
+        },
+      }),
+    },
+    { timeoutMs: 15_000 },
+  );
 
   if (!response.ok) {
     throw new GeminiRequestError(`Gemini request failed with HTTP ${response.status}`);

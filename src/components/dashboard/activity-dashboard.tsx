@@ -364,7 +364,9 @@ export function ActivityDashboard({ data }: { data: DashboardActivity }) {
                 </span>
               ),
               children: (
-                <DataTable rows={data.events} columns={eventColumns} empty="No webhook events received yet" />
+                <div className="px-5 pb-5">
+                  <DataTable rows={data.events} columns={eventColumns} empty="No webhook events received yet" />
+                </div>
               ),
             },
             {
@@ -385,7 +387,9 @@ export function ActivityDashboard({ data }: { data: DashboardActivity }) {
                 </span>
               ),
               children: (
-                <ActionHistory rows={data.actions} />
+                <div className="px-5 pb-5">
+                  <ActionHistory rows={data.actions} />
+                </div>
               ),
             },
             {
@@ -400,7 +404,9 @@ export function ActivityDashboard({ data }: { data: DashboardActivity }) {
                 </span>
               ),
               children: (
-                <RuleConfiguration data={data} />
+                <div className="px-5 pb-5">
+                  <RuleConfiguration data={data} />
+                </div>
               ),
             },
             {
@@ -415,7 +421,9 @@ export function ActivityDashboard({ data }: { data: DashboardActivity }) {
                 </span>
               ),
               children: (
-                <DataTable rows={data.repositories} columns={repositoryColumns} empty="No repositories connected yet" />
+                <div className="px-5 pb-5">
+                  <DataTable rows={data.repositories} columns={repositoryColumns} empty="No repositories connected yet" />
+                </div>
               ),
             },
           ]}

@@ -19,7 +19,7 @@
     "test:rule-input": "tsx --test src/lib/rules/rule-input.test.ts",
     "test:github-actions": "tsx --test src/lib/github/github-action.test.ts",
     "test:slack": "tsx --test src/lib/slack/slack-action.test.ts",
-    "test:ai": "tsx --test src/lib/ai/triage.test.ts",
+    "test:ai": "tsx --test src/lib/ai/triage.test.ts src/lib/ai/request-retry.test.ts",
     "start": "next start",
     "lint": "eslint",
     "postinstall": "prisma generate",
