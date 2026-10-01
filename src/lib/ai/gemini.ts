@@ -9,6 +9,7 @@ import {
 } from "@/lib/ai/triage";
 import type { NormalizedGitHubEvent } from "@/lib/events/normalize-github-event";
 import { fetchWithTransientRetry } from "@/lib/ai/request-retry";
+import { getGeminiModelCandidates } from "@/lib/ai/model-fallback";
 
 export class GeminiSetupError extends Error {}
 export class GeminiRequestError extends Error {}
@@ -21,24 +22,21 @@ type InteractionResponse = {
   }>;
 };
 
-export async function generateGeminiTriage(
+async function requestModelTriage(
   event: NormalizedGitHubEvent,
-): Promise<{ result: TriageResult; model: string }> {
-  const { GEMINI_API_KEY, GEMINI_MODEL } = getServerEnv();
-  if (!GEMINI_API_KEY) {
-    throw new GeminiSetupError("Gemini API key is not configured");
-  }
-
+  apiKey: string,
+  model: string,
+) {
   const response = await fetchWithTransientRetry(
     "https://generativelanguage.googleapis.com/v1beta/interactions",
     {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "x-goog-api-key": GEMINI_API_KEY,
+        "x-goog-api-key": apiKey,
       },
       body: JSON.stringify({
-        model: GEMINI_MODEL,
+        model,
         store: false,
         input: buildTriagePrompt(event),
         response_format: {
@@ -70,11 +68,34 @@ export async function generateGeminiTriage(
   }
 
   try {
-    return { result: parseTriageResult(JSON.parse(output)), model: GEMINI_MODEL };
+    return parseTriageResult(JSON.parse(output));
   } catch (error) {
     if (error instanceof SyntaxError) {
       throw new GeminiRequestError("Gemini returned invalid JSON");
     }
     throw error;
   }
+}
+
+export async function generateGeminiTriage(
+  event: NormalizedGitHubEvent,
+): Promise<{ result: TriageResult; model: string }> {
+  const { GEMINI_API_KEY } = getServerEnv();
+  if (!GEMINI_API_KEY) {
+    throw new GeminiSetupError("Gemini API key is not configured");
+  }
+
+  const models = getGeminiModelCandidates();
+  let lastError: unknown;
+
+  for (const model of models) {
+    try {
+      return { result: await requestModelTriage(event, GEMINI_API_KEY, model), model };
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  const message = lastError instanceof Error ? lastError.message : "Unknown Gemini failure";
+  throw new GeminiRequestError(`All Gemini models failed. Last error: ${message}`);
 }
