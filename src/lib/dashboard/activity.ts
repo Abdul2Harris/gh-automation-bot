@@ -5,6 +5,13 @@ import { getServerEnv } from "@/lib/env";
 
 const RECENT_ROW_LIMIT = 100;
 
+function actionContentMode(type: string, config: unknown) {
+  if (type !== "COMMENT" && type !== "SLACK_NOTIFICATION") return null;
+  return typeof config === "object" && config !== null && "mode" in config && config.mode === "AI"
+    ? "AI"
+    : "CUSTOM";
+}
+
 export async function getDashboardActivity(userId: string) {
   const access = await prisma.userInstallation.findMany({
     where: { userId },
@@ -69,7 +76,7 @@ export async function getDashboardActivity(userId: string) {
         select: {
           id: true, name: true, isEnabled: true, trigger: true, matchField: true,
           matchValue: true, createdAt: true,
-          actions: { orderBy: { position: "asc" }, select: { type: true } },
+          actions: { orderBy: { position: "asc" }, select: { type: true, config: true } },
           repository: { select: { fullName: true } },
           installation: { select: { accountLogin: true } },
         },
@@ -128,6 +135,10 @@ export async function getDashboardActivity(userId: string) {
       matchField: rule.matchField,
       matchValue: rule.matchValue,
       actionTypes: rule.actions.map((action) => action.type),
+      actionDetails: rule.actions.map((action) => ({
+        type: action.type,
+        contentMode: actionContentMode(action.type, action.config),
+      })),
       createdAt: rule.createdAt.toISOString(),
       scope: rule.repository?.fullName ?? `${rule.installation.accountLogin} (all repositories)`,
     })),

@@ -127,7 +127,21 @@ export function RuleConfiguration({ data }: { data: DashboardActivity }) {
     { title: "Scope", dataIndex: "scope", key: "scope" },
     { title: "Trigger", dataIndex: "trigger", key: "trigger", render: (value: string) => <Tag color="purple">{readable(value)}</Tag> },
     { title: "Condition", key: "condition", render: (_, rule) => rule.matchValue ? `${readable(rule.matchField ?? "content")} contains "${rule.matchValue}"` : "Any" },
-    { title: "Actions", dataIndex: "actionTypes", key: "actions", render: (values: string[]) => <div className="flex flex-wrap gap-1">{values.map((value) => <Tag key={value} color="geekblue">{readable(value)}</Tag>)}</div> },
+    {
+      title: "Actions",
+      dataIndex: "actionDetails",
+      key: "actions",
+      render: (actions: RuleRow["actionDetails"]) => (
+        <div className="flex flex-wrap gap-1">
+          {actions.map((action) => (
+            <Tag key={action.type} color="geekblue">
+              {readable(action.type)}
+              {action.contentMode ? ` (${action.contentMode === "AI" ? "AI" : "Custom"})` : ""}
+            </Tag>
+          ))}
+        </div>
+      ),
+    },
     { title: "Enabled", key: "enabled", render: (_, rule) => <Switch checked={rule.isEnabled} onChange={(value) => void setEnabled(rule, value)} /> },
     { title: "", key: "delete", width: 90, render: (_, rule) => <Popconfirm title="Delete this rule?" description="Existing action history will be kept." onConfirm={() => void remove(rule)}><Button danger type="text">Delete</Button></Popconfirm> },
   ];

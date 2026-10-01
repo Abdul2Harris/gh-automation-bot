@@ -30,6 +30,7 @@ Do not invent entries. Add notes only when something meaningful happens.
 - 2026-10-01: Added ordered Gemini model fallback after repeated production 503 responses. AI triage first tries `gemini-3.8-flash`, then `gemini-3.5-flash`, and finally `gemini-2.5-flash`; the successful model is persisted with the triage result.
 - 2026-10-01: Optimized Gemini fallback latency after live testing. Each retry cycle now attempts `3.8`, `3.5`, and `2.5` once before waiting with exponential backoff and repeating the complete model sequence.
 - 2026-10-01: Simplified dashboard failure presentation after live usage. Removed the persistent failure warning banner, kept the Actions tab count focused on total actions, and added a latest-failed indicator only when the newest action failed.
+- 2026-10-01: Updated the Rules table to show whether GitHub comment and Slack actions use AI-generated or custom content, without exposing the configured message bodies to the client.
 
 ## Developer Decisions
 
@@ -41,6 +42,7 @@ Do not invent entries. Add notes only when something meaningful happens.
 
 - 2026-10-01: The developer confirmed the Vercel deployment milestone was completed. In production, a GitHub webhook was received and verified, the event was stored, an issue rule matched, a GitHub label was added automatically, bot-triggered events were ignored without an automation loop, and the dashboard displayed the complete history.
 - 2026-10-01: The developer also verified pull-request-opened automation and push-event processing in production. A push rule sent its Slack notification, while GitHub label/comment actions were correctly not applied to the push. The developer checked dashboard failure visibility and confirmed no secrets were logged or exposed; no production failure occurred during this test run.
+- 2026-10-01: The developer verified Gemini triage in production after adding ordered model fallback. A matched pull request completed successfully, posted its AI-generated GitHub comment, sent its AI-generated Slack notification, and exposed no new errors.
 
 ## Alternatives Rejected
 
