@@ -1,26 +1,55 @@
 {
-  "name": "scaffold-app",
+  "name": "event-driven-github-automation-bot",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "db:check": "tsx scripts/check-database.ts",
+    "db:deploy": "prisma migrate deploy",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:status": "prisma migrate status",
+    "db:studio": "prisma studio",
+    "github:check": "tsx scripts/check-github-app.mts",
+    "test:webhooks": "tsx --test src/lib/github/webhook-signature.test.ts",
+    "test:webhook-persistence": "tsx scripts/check-webhook-persistence.mts",
+    "test:events": "tsx --test src/lib/events/normalize-github-event.test.ts",
+    "test:rules": "tsx --test src/lib/rules/evaluate-rules.test.ts",
+    "test:rule-input": "tsx --test src/lib/rules/rule-input.test.ts",
+    "test:github-actions": "tsx --test src/lib/github/github-action.test.ts",
+    "test:slack": "tsx --test src/lib/slack/slack-action.test.ts",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "postinstall": "prisma generate",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@ant-design/icons": "^6.3.4",
+    "@ant-design/nextjs-registry": "^1.3.0",
+    "@prisma/adapter-pg": "6.12.0",
+    "@prisma/client": "6.12.0",
+    "antd": "^6.6.5",
+    "dotenv": "^18.0.4",
     "next": "16.3.7",
+    "octokit": "4.1.4",
+    "pg": "^8.23.0",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "server-only": "^0.0.1",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.7",
+    "prisma": "6.12.0",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5"
   }
 }

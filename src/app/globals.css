@@ -1,26 +1,50 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f8fafc;
+  --foreground: #0f172a;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-sans: Arial, Helvetica, sans-serif;
+  --font-mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Ant Design table overrides for light theme */
+.ant-table-thead > tr > th {
+  background: #f8fafc !important;
+  border-bottom-color: #e2e8f0 !important;
+  color: #64748b !important;
+  font-size: 0.72rem !important;
+  font-weight: 600 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.ant-table-tbody > tr > td {
+  border-bottom-color: #f1f5f9 !important;
+  color: #334155 !important;
+}
+.ant-table-tbody > tr:hover > td {
+  background: #f8fafc !important;
+}
+.ant-tabs-tab {
+  color: #94a3b8 !important;
+  font-weight: 500 !important;
+}
+.ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: #4f46e5 !important;
+}
+.ant-tabs-ink-bar {
+  background: #4f46e5 !important;
+}
+.ant-tabs-nav::before {
+  border-bottom-color: #e2e8f0 !important;
 }

@@ -1,0 +1,201 @@
+generator client {
+  provider        = "prisma-client-js"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum InstallationAccountType {
+  USER
+  ORGANIZATION
+}
+
+enum WebhookProcessingStatus {
+  RECEIVED
+  PROCESSING
+  PROCESSED
+  FAILED
+  IGNORED
+}
+
+enum RuleTrigger {
+  ISSUE_OPENED
+  PULL_REQUEST_OPENED
+  PUSH
+}
+
+enum RuleMatchField {
+  TITLE
+  BODY
+  TITLE_OR_BODY
+}
+
+enum AutomationActionType {
+  ADD_LABEL
+  COMMENT
+  SLACK_NOTIFICATION
+}
+
+enum ActionAttemptStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  SKIPPED
+}
+
+model User {
+  id            String             @id @default(cuid())
+  githubUserId  BigInt             @unique
+  login         String
+  displayName   String?
+  avatarUrl     String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  installations UserInstallation[]
+  rules         AutomationRule[]   @relation("RuleCreator")
+  sessions      Session[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model GitHubInstallation {
+  id                   String                  @id @default(cuid())
+  githubInstallationId BigInt                  @unique
+  accountId            BigInt
+  accountLogin         String
+  accountType          InstallationAccountType
+  suspendedAt          DateTime?
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+  users                UserInstallation[]
+  repositories         Repository[]
+  events               WebhookEvent[]
+  rules                AutomationRule[]
+
+  @@index([accountId])
+}
+
+model UserInstallation {
+  userId         String
+  installationId String
+  createdAt      DateTime           @default(now())
+  user           User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  installation   GitHubInstallation @relation(fields: [installationId], references: [id], onDelete: Cascade)
+
+  @@id([userId, installationId])
+  @@index([installationId])
+}
+
+model Repository {
+  id                 String             @id @default(cuid())
+  githubRepositoryId BigInt             @unique
+  installationId     String
+  owner              String
+  name               String
+  fullName           String             @unique
+  isPrivate          Boolean
+  isActive           Boolean            @default(true)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  installation       GitHubInstallation @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  events             WebhookEvent[]
+  rules              AutomationRule[]
+
+  @@index([installationId])
+}
+
+model WebhookEvent {
+  id             String                  @id @default(cuid())
+  deliveryId     String                  @unique
+  eventType      String
+  action         String?
+  installationId String?
+  repositoryId   String?
+  payload        Json
+  status         WebhookProcessingStatus @default(RECEIVED)
+  errorMessage   String?
+  receivedAt     DateTime                @default(now())
+  processedAt    DateTime?
+  installation   GitHubInstallation?     @relation(fields: [installationId], references: [id], onDelete: SetNull)
+  repository     Repository?             @relation(fields: [repositoryId], references: [id], onDelete: SetNull)
+  actionAttempts ActionAttempt[]
+
+  @@index([eventType, receivedAt])
+  @@index([installationId, receivedAt])
+  @@index([repositoryId, receivedAt])
+  @@index([status, receivedAt])
+}
+
+model AutomationRule {
+  id             String               @id @default(cuid())
+  installationId String
+  repositoryId   String?
+  createdById    String?
+  name           String
+  isEnabled      Boolean              @default(true)
+  trigger        RuleTrigger
+  matchField     RuleMatchField?
+  matchValue     String?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  installation   GitHubInstallation   @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  repository     Repository?          @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  createdBy      User?                @relation("RuleCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  actions        AutomationRuleAction[]
+
+  @@index([installationId, isEnabled])
+  @@index([repositoryId, isEnabled])
+  @@index([createdById])
+}
+
+model AutomationRuleAction {
+  id             String               @id @default(cuid())
+  ruleId         String
+  type           AutomationActionType
+  config         Json
+  position       Int                  @default(0)
+  createdAt      DateTime             @default(now())
+  rule           AutomationRule       @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  actionAttempts ActionAttempt[]
+
+  @@index([ruleId, position])
+}
+
+model ActionAttempt {
+  id              String               @id @default(cuid())
+  eventId         String
+  ruleActionId    String?
+  type            AutomationActionType
+  status          ActionAttemptStatus  @default(PENDING)
+  target          String?
+  requestPayload  Json?
+  responsePayload Json?
+  errorMessage    String?
+  isRetryable     Boolean              @default(false)
+  retryCount      Int                  @default(0)
+  lastRetriedAt   DateTime?
+  attemptedAt     DateTime             @default(now())
+  completedAt     DateTime?
+  event           WebhookEvent         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  ruleAction      AutomationRuleAction? @relation(fields: [ruleActionId], references: [id], onDelete: SetNull)
+
+  @@index([eventId, attemptedAt])
+  @@index([ruleActionId, attemptedAt])
+  @@index([status, attemptedAt])
+  @@unique([eventId, ruleActionId])
+}
