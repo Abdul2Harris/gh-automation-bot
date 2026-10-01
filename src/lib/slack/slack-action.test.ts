@@ -41,7 +41,9 @@ describe("Slack action", () => {
         githubComment: "AI triage comment.", slackMessage: "High-priority bug reported.", model: "test-model",
       },
     );
-    assert.match(text, /^High-priority bug reported\./);
+    assert.match(text, /^AI triage: HIGH priority/);
+    assert.match(text, /A bug was reported\./);
+    assert.match(text, /Suggested labels: bug/);
     assert.match(text, /Issue #12 opened/);
   });
 
