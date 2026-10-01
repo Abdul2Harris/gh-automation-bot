@@ -4,7 +4,7 @@ import { getServerEnv } from "@/lib/env";
 import {
   buildTriagePrompt,
   applyPriorityOverrides,
-  parseTriageResult,
+  parseTriageJson,
   triageJsonSchema,
   type TriageResult,
 } from "@/lib/ai/triage";
@@ -67,14 +67,7 @@ async function requestModelTriage(
     );
   }
 
-  try {
-    return parseTriageResult(JSON.parse(output));
-  } catch (error) {
-    if (error instanceof SyntaxError) {
-      throw new GeminiRequestError("Gemini returned invalid JSON");
-    }
-    throw error;
-  }
+  return parseTriageJson(output);
 }
 
 export async function generateGeminiTriage(
