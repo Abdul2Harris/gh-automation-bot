@@ -1,14 +1,17 @@
 import { z } from "zod";
 import { AutomationActionType } from "@/generated/prisma";
 import type { NormalizedGitHubEvent } from "@/lib/events/normalize-github-event";
+import type { StoredTriage } from "@/lib/ai/event-triage";
 
 const addLabelConfigSchema = z.object({
   labels: z.array(z.string().trim().min(1).max(50)).min(1).max(10),
 });
 
-const commentConfigSchema = z.object({
-  body: z.string().trim().min(1).max(10_000),
-});
+const commentConfigSchema = z.union([
+  z.object({ mode: z.literal("AI") }),
+  z.object({ mode: z.literal("CUSTOM"), body: z.string().trim().min(1).max(10_000) }),
+  z.object({ body: z.string().trim().min(1).max(10_000) }),
+]);
 
 export type GitHubActionClient = {
   addLabels(input: {
@@ -38,6 +41,12 @@ export type GitHubActionExecution = {
 
 export class GitHubActionConfigError extends Error {}
 export class GitHubActionNotApplicableError extends Error {}
+export class AIContentUnavailableError extends Error {}
+
+export function usesAiGitHubContent(actionType: AutomationActionType, config: unknown) {
+  return actionType === AutomationActionType.COMMENT &&
+    typeof config === "object" && config !== null && "mode" in config && config.mode === "AI";
+}
 
 function issueTarget(event: NormalizedGitHubEvent) {
   if (event.kind === "push") {
@@ -70,6 +79,7 @@ export async function executeGitHubRuleAction(
   rule: GitHubActionRule,
   event: NormalizedGitHubEvent,
   client: GitHubActionClient,
+  triage?: StoredTriage,
 ): Promise<GitHubActionExecution> {
   const target = issueTarget(event);
   const targetName = `${target.owner}/${target.repo}#${target.issueNumber}`;
@@ -98,11 +108,15 @@ export async function executeGitHubRuleAction(
       rule.actionConfig,
       "COMMENT",
     );
-    const response = await client.createComment({ ...target, body: config.body });
+    const body = "mode" in config && config.mode === "AI" ? triage?.githubComment : config.body;
+    if (!body) {
+      throw new AIContentUnavailableError("AI-generated GitHub comment is unavailable");
+    }
+    const response = await client.createComment({ ...target, body });
 
     return {
       target: targetName,
-      requestPayload: { body: config.body },
+      requestPayload: { body, contentMode: "mode" in config ? config.mode : "CUSTOM" },
       responsePayload: {
         status: response.status,
         commentId: response.commentId,

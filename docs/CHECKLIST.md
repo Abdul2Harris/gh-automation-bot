@@ -93,11 +93,11 @@ Use this checklist to track assignment requirements and implementation progress 
 
 ## Deployment
 
-- [ ] Deploy to Vercel
-- [ ] Configure production environment variables
-- [ ] Confirm webhook URL points to production
-- [ ] Confirm serverless-compatible processing
-- [ ] Avoid architectures requiring a persistent worker
+- [x] Deploy to Vercel
+- [x] Configure production environment variables
+- [x] Confirm webhook URL points to production
+- [x] Confirm serverless-compatible processing
+- [x] Avoid architectures requiring a persistent worker
 
 ## Testing + Verification
 
@@ -105,26 +105,29 @@ Use this checklist to track assignment requirements and implementation progress 
 - [x] Test GitHub App installation
 - [x] Test webhook signature verification
 - [x] Test duplicate webhook delivery handling
-- [ ] Test issue opened automation
-- [ ] Test pull request opened automation
-- [ ] Test push event recording
+- [x] Test issue opened automation
+- [x] Test pull request opened automation
+- [x] Test push event recording
 - [x] Test GitHub label action
 - [x] Test GitHub comment action
 - [x] Test Slack notification action
-- [ ] Test failure visibility in dashboard
+- [x] Test failure visibility in dashboard
 - [x] Test authorization on dashboard APIs
-- [ ] Confirm no secrets are logged or exposed
-- [ ] Run final end-to-end production test
+- [x] Confirm no secrets are logged or exposed
+- [x] Run final end-to-end production test
 
 ## Optional Gemini AI Triage
 
-- [ ] Add only after the complete core flow works
-- [ ] Treat issue/PR content as untrusted data
-- [ ] Generate summary
-- [ ] Generate priority suggestion
-- [ ] Generate suggested label
-- [ ] Keep AI output informational only at first
-- [ ] Do not automatically perform security-sensitive actions based solely on LLM output
+- [x] Add only after the complete core flow works
+- [x] Treat issue/PR content as untrusted data
+- [x] Generate summary
+- [x] Generate priority suggestion
+- [x] Generate suggested label
+- [x] Keep suggested priority and labels informational
+- [x] Do not automatically perform security-sensitive actions based solely on LLM output
+- [x] Persist AI triage status and failures
+- [x] Reuse one AI result across matched GitHub comment and Slack actions
+- [ ] Test a live Gemini response after configuring the API key
 
 ## Final Submission
 

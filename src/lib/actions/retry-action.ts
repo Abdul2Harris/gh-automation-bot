@@ -8,6 +8,9 @@ import { executeGitHubAction } from "@/lib/github/action-attempts";
 import { GitHubActionConfigError, GitHubActionNotApplicableError } from "@/lib/github/github-action";
 import { executeSlackAction, SlackSetupError } from "@/lib/slack/action-attempts";
 import { SlackActionConfigError } from "@/lib/slack/slack-action";
+import { resolveEventTriage } from "@/lib/ai/event-triage";
+import { usesAiGitHubContent } from "@/lib/github/github-action";
+import { usesAiSlackContent } from "@/lib/slack/slack-action";
 
 export const MAX_MANUAL_RETRIES = 5;
 
@@ -36,7 +39,7 @@ export async function retryActionAttempt(userId: string, attemptId: string) {
       isRetryable: true,
       retryCount: true,
       type: true,
-      event: { select: { eventType: true, payload: true } },
+      event: { select: { id: true, eventType: true, payload: true } },
       ruleAction: { select: { type: true, config: true } },
     },
   });
@@ -80,10 +83,18 @@ export async function retryActionAttempt(userId: string, attemptId: string) {
       throw new GitHubActionConfigError("Stored webhook event can no longer be processed");
     }
 
+    const needsTriage =
+      usesAiGitHubContent(attempt.ruleAction.type, attempt.ruleAction.config) ||
+      (attempt.ruleAction.type === AutomationActionType.SLACK_NOTIFICATION &&
+        usesAiSlackContent(attempt.ruleAction.config));
+    const triage = needsTriage
+      ? await resolveEventTriage(attempt.event.id, normalized.event, true)
+      : undefined;
+
     const execution =
       attempt.type === AutomationActionType.SLACK_NOTIFICATION
-        ? await executeSlackAction(attempt.ruleAction, normalized.event)
-        : await executeGitHubAction(attempt.ruleAction, normalized.event);
+        ? await executeSlackAction(attempt.ruleAction, normalized.event, triage)
+        : await executeGitHubAction(attempt.ruleAction, normalized.event, triage);
 
     await prisma.actionAttempt.update({
       where: { id: attempt.id },

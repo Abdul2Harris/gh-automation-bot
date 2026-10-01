@@ -12,11 +12,6 @@ const optionalSecret = z.preprocess(
   z.string().min(1).optional(),
 );
 
-const optionalWebhookSecret = z.preprocess(
-  (value) => (value === "" ? undefined : value),
-  z.string().min(32).optional(),
-);
-
 const serverEnvSchema = z.object({
   APP_URL: z.string().url(),
   AUTH_SECRET: z.string().min(32),
@@ -29,6 +24,7 @@ const serverEnvSchema = z.object({
   GITHUB_WEBHOOK_SECRET: z.string().min(32),
   SLACK_WEBHOOK_URL: optionalUrl,
   GEMINI_API_KEY: optionalSecret,
+  GEMINI_MODEL: z.string().min(1).default("gemini-3.8-flash"),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
@@ -52,6 +48,7 @@ export function getServerEnv(): ServerEnv {
     GITHUB_WEBHOOK_SECRET: process.env.GITHUB_WEBHOOK_SECRET,
     SLACK_WEBHOOK_URL: process.env.SLACK_WEBHOOK_URL,
     GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+    GEMINI_MODEL: process.env.GEMINI_MODEL,
   });
 
   if (!result.success) {

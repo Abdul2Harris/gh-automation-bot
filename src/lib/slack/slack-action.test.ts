@@ -32,6 +32,19 @@ const issueEvent: NormalizedGitHubEvent = {
 };
 
 describe("Slack action", () => {
+  it("uses the persisted Gemini Slack message for AI mode", () => {
+    const text = buildSlackMessage(
+      { mode: "AI" },
+      issueEvent,
+      {
+        summary: "A bug was reported.", priority: "HIGH", suggestedLabels: ["bug"],
+        githubComment: "AI triage comment.", slackMessage: "High-priority bug reported.", model: "test-model",
+      },
+    );
+    assert.match(text, /^High-priority bug reported\./);
+    assert.match(text, /Issue #12 opened/);
+  });
+
   it("builds a safe issue notification with an optional prefix", () => {
     const text = buildSlackMessage(
       { message: "Automation alert" },

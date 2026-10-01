@@ -1,6 +1,7 @@
 import "server-only";
 
 import { prisma } from "@/lib/db/prisma";
+import { getServerEnv } from "@/lib/env";
 
 const RECENT_ROW_LIMIT = 100;
 
@@ -22,6 +23,7 @@ export async function getDashboardActivity(userId: string) {
       events: [],
       actions: [],
       rules: [],
+      aiConfigured: Boolean(getServerEnv().GEMINI_API_KEY),
     };
   }
 
@@ -45,6 +47,7 @@ export async function getDashboardActivity(userId: string) {
           errorMessage: true, receivedAt: true,
           repository: { select: { fullName: true } },
           _count: { select: { actionAttempts: true } },
+          triage: { select: { status: true, priority: true, summary: true, suggestedLabels: true, errorMessage: true, model: true } },
         },
       }),
       prisma.actionAttempt.findMany({
@@ -100,6 +103,7 @@ export async function getDashboardActivity(userId: string) {
       receivedAt: event.receivedAt.toISOString(),
       repository: event.repository?.fullName ?? "Unknown repository",
       actionCount: event._count.actionAttempts,
+      triage: event.triage,
     })),
     actions: actions.map((action) => ({
       id: action.id,
@@ -127,6 +131,7 @@ export async function getDashboardActivity(userId: string) {
       createdAt: rule.createdAt.toISOString(),
       scope: rule.repository?.fullName ?? `${rule.installation.accountLogin} (all repositories)`,
     })),
+    aiConfigured: Boolean(getServerEnv().GEMINI_API_KEY),
   };
 }
 

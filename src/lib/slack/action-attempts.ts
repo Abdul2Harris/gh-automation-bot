@@ -8,6 +8,7 @@ import {
 import { prisma } from "@/lib/db/prisma";
 import { getServerEnv } from "@/lib/env";
 import type { NormalizedGitHubEvent } from "@/lib/events/normalize-github-event";
+import type { StoredTriage } from "@/lib/ai/event-triage";
 import {
   executeSlackRuleAction,
   SlackActionConfigError,
@@ -71,14 +72,16 @@ function slackClient(): SlackActionClient {
 export async function executeSlackAction(
   action: { config: Prisma.JsonValue },
   event: NormalizedGitHubEvent,
+  triage?: StoredTriage,
 ) {
-  return executeSlackRuleAction(action.config, event, slackClient());
+  return executeSlackRuleAction(action.config, event, slackClient(), triage);
 }
 
 export async function executeMatchedSlackActions(
   eventId: string,
   event: NormalizedGitHubEvent,
   rules: MatchedRule[],
+  triage?: StoredTriage,
 ) {
   const slackActions = rules.flatMap((rule) =>
     rule.actions
@@ -120,6 +123,7 @@ export async function executeMatchedSlackActions(
         action.config,
         event,
         client,
+        triage,
       );
       await prisma.actionAttempt.update({
         where: { id: attempt.id },

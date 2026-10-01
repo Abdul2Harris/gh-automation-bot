@@ -41,6 +41,14 @@ export async function createRule(userId: string, input: CreateRuleInput) {
     throw new ApiError(400, "Slack webhook URL is not configured");
   }
 
+  if (
+    input.actions.some(
+      (action) => "mode" in action.config && action.config.mode === "AI",
+    ) && !getServerEnv().GEMINI_API_KEY
+  ) {
+    throw new ApiError(400, "Gemini API key is not configured");
+  }
+
   return prisma.automationRule.create({
     data: {
       installationId: input.installationId,

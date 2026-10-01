@@ -9,12 +9,20 @@ const labelAction = z.object({
 
 const commentAction = z.object({
   type: z.literal("COMMENT"),
-  config: z.object({ body: z.string().trim().min(1).max(10_000) }),
+  config: z.union([
+    z.object({ mode: z.literal("AI") }),
+    z.object({ mode: z.literal("CUSTOM"), body: z.string().trim().min(1).max(10_000) }),
+    z.object({ body: z.string().trim().min(1).max(10_000) }),
+  ]),
 });
 
 const slackAction = z.object({
   type: z.literal("SLACK_NOTIFICATION"),
-  config: z.object({ message: z.string().trim().min(1).max(500).optional() }),
+  config: z.union([
+    z.object({ mode: z.literal("AI") }),
+    z.object({ mode: z.literal("CUSTOM"), message: z.string().trim().min(1).max(500).optional() }),
+    z.object({ message: z.string().trim().min(1).max(500).optional() }),
+  ]),
 });
 
 export const createRuleSchema = z
@@ -33,6 +41,10 @@ export const createRuleSchema = z
   .superRefine((value, context) => {
     if (value.trigger === "PUSH" && (value.matchField || value.matchValue)) {
       context.addIssue({ code: "custom", path: ["matchValue"], message: "Push rules cannot use a text condition" });
+    }
+
+    if (value.trigger === "PUSH" && value.actions.some((action) => "mode" in action.config && action.config.mode === "AI")) {
+      context.addIssue({ code: "custom", path: ["actions"], message: "AI content applies only to issue and pull request rules" });
     }
 
     if (value.trigger !== "PUSH" && Boolean(value.matchField) !== Boolean(value.matchValue)) {

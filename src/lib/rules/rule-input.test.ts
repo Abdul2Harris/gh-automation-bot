@@ -54,4 +54,26 @@ describe("createRuleSchema", () => {
     });
     assert.equal(result.success, true);
   });
+
+  it("accepts AI-generated content for issue and pull request actions", () => {
+    const result = createRuleSchema.safeParse({
+      ...baseRule,
+      actions: [
+        { type: "COMMENT", config: { mode: "AI" } },
+        { type: "SLACK_NOTIFICATION", config: { mode: "AI" } },
+      ],
+    });
+    assert.equal(result.success, true);
+  });
+
+  it("rejects AI-generated content for push actions", () => {
+    const result = createRuleSchema.safeParse({
+      ...baseRule,
+      trigger: "PUSH",
+      matchField: null,
+      matchValue: null,
+      actions: [{ type: "SLACK_NOTIFICATION", config: { mode: "AI" } }],
+    });
+    assert.equal(result.success, false);
+  });
 });

@@ -211,7 +211,7 @@ Use approximately this order:
 
 The developer approved and completed the Project Setup and Database + Persistence milestones on 2026-09-30. Keep those baselines intact.
 
-The developer completed authentication, repository connection, webhook processing, multi-action rules, GitHub/Slack actions, dashboard activity history, rule configuration, and manual failure retries. Retries are ownership-scoped, atomically claimed, and limited to retryable external failures. Do not begin deployment to Vercel until it has been explained and explicitly approved.
+The developer completed authentication, repository connection, webhook processing, multi-action rules, GitHub/Slack actions, dashboard activity history, rule configuration, manual failure retries, and Vercel deployment. Production verification covers issue and pull-request automation, push recording and Slack delivery, automatic GitHub labeling, expected skipping of GitHub label/comment actions for pushes, bot-loop prevention, dashboard history/failure visibility, and secret exposure checks. Optional Gemini triage is implemented for issue and pull-request rules with persisted structured output and custom/AI content modes; a live Gemini test remains pending until the API key is configured. Do not begin another milestone until it has been explained and explicitly approved.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

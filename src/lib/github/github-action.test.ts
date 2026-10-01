@@ -49,6 +49,24 @@ const client: GitHubActionClient = {
 };
 
 describe("executeGitHubRuleAction", () => {
+  it("uses the persisted Gemini comment for AI mode", async () => {
+    calls.length = 0;
+    await executeGitHubRuleAction(
+      { actionType: AutomationActionType.COMMENT, actionConfig: { mode: "AI" } },
+      issueEvent,
+      client,
+      {
+        summary: "A bug was reported.", priority: "HIGH", suggestedLabels: ["bug"],
+        githubComment: "AI triage: this appears high priority.",
+        slackMessage: "High-priority bug reported.", model: "test-model",
+      },
+    );
+    assert.deepEqual(calls[0], {
+      method: "createComment",
+      input: { owner: "octocat", repo: "hello-world", issueNumber: 12, body: "AI triage: this appears high priority." },
+    });
+  });
+
   it("adds validated labels to an issue", async () => {
     calls.length = 0;
     const result = await executeGitHubRuleAction(

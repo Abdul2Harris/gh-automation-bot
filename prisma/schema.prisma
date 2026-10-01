@@ -48,6 +48,18 @@ enum ActionAttemptStatus {
   SKIPPED
 }
 
+enum TriageStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+}
+
+enum TriagePriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
 model User {
   id            String             @id @default(cuid())
   githubUserId  BigInt             @unique
@@ -134,11 +146,31 @@ model WebhookEvent {
   installation   GitHubInstallation?     @relation(fields: [installationId], references: [id], onDelete: SetNull)
   repository     Repository?             @relation(fields: [repositoryId], references: [id], onDelete: SetNull)
   actionAttempts ActionAttempt[]
+  triage         EventTriage?
 
   @@index([eventType, receivedAt])
   @@index([installationId, receivedAt])
   @@index([repositoryId, receivedAt])
   @@index([status, receivedAt])
+}
+
+model EventTriage {
+  id              String          @id @default(cuid())
+  eventId         String          @unique
+  status          TriageStatus    @default(PENDING)
+  priority        TriagePriority?
+  summary         String?
+  suggestedLabels String[]        @default([])
+  githubComment   String?
+  slackMessage    String?
+  model           String?
+  errorMessage    String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  completedAt     DateTime?
+  event           WebhookEvent    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
 }
 
 model AutomationRule {

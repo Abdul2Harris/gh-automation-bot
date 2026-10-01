@@ -7,6 +7,7 @@ import {
 } from "@/generated/prisma";
 import { prisma } from "@/lib/db/prisma";
 import type { NormalizedGitHubEvent } from "@/lib/events/normalize-github-event";
+import type { StoredTriage } from "@/lib/ai/event-triage";
 import { getInstallationOctokit } from "@/lib/github/app";
 import {
   executeGitHubRuleAction,
@@ -86,11 +87,13 @@ function actionClient(installationId: number): GitHubActionClient {
 export async function executeGitHubAction(
   action: { type: AutomationActionType; config: Prisma.JsonValue },
   event: NormalizedGitHubEvent,
+  triage?: StoredTriage,
 ) {
   return executeGitHubRuleAction(
     { actionType: action.type, actionConfig: action.config },
     event,
     actionClient(event.installationId),
+    triage,
   );
 }
 
@@ -98,6 +101,7 @@ export async function executeMatchedGitHubActions(
   eventId: string,
   event: NormalizedGitHubEvent,
   rules: MatchedRule[],
+  triage?: StoredTriage,
 ) {
   const githubActions = rules.flatMap((rule) =>
     rule.actions
@@ -140,7 +144,7 @@ export async function executeMatchedGitHubActions(
 
     try {
       const execution = await executeGitHubRuleAction(
-        { actionType: action.type, actionConfig: action.config }, event, client,
+        { actionType: action.type, actionConfig: action.config }, event, client, triage,
       );
       await prisma.actionAttempt.update({
         where: { id: attempt.id },

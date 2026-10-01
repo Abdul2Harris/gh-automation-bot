@@ -1,15 +1,23 @@
 import { z } from "zod";
 import type { NormalizedGitHubEvent } from "@/lib/events/normalize-github-event";
+import type { StoredTriage } from "@/lib/ai/event-triage";
 
-const slackActionConfigSchema = z.object({
-  message: z.string().trim().min(1).max(500).optional(),
-});
+const slackActionConfigSchema = z.union([
+  z.object({ mode: z.literal("AI") }),
+  z.object({ mode: z.literal("CUSTOM"), message: z.string().trim().min(1).max(500).optional() }),
+  z.object({ message: z.string().trim().min(1).max(500).optional() }),
+]);
 
 export type SlackActionClient = {
   send(text: string): Promise<{ status: number }>;
 };
 
 export class SlackActionConfigError extends Error {}
+export class SlackAIContentUnavailableError extends Error {}
+
+export function usesAiSlackContent(config: unknown) {
+  return typeof config === "object" && config !== null && "mode" in config && config.mode === "AI";
+}
 
 function escapeSlackText(value: string) {
   return value
@@ -36,6 +44,7 @@ function eventSummary(event: NormalizedGitHubEvent) {
 export function buildSlackMessage(
   actionConfig: unknown,
   event: NormalizedGitHubEvent,
+  triage?: StoredTriage,
 ) {
   const parsed = slackActionConfigSchema.safeParse(actionConfig);
 
@@ -43,6 +52,13 @@ export function buildSlackMessage(
     throw new SlackActionConfigError(
       "Invalid SLACK_NOTIFICATION action configuration",
     );
+  }
+
+  if ("mode" in parsed.data && parsed.data.mode === "AI") {
+    if (!triage?.slackMessage) {
+      throw new SlackAIContentUnavailableError("AI-generated Slack message is unavailable");
+    }
+    return `${escapeSlackText(triage.slackMessage)}\n${eventSummary(event)}`;
   }
 
   const prefix = parsed.data.message
@@ -56,8 +72,9 @@ export async function executeSlackRuleAction(
   actionConfig: unknown,
   event: NormalizedGitHubEvent,
   client: SlackActionClient,
+  triage?: StoredTriage,
 ) {
-  const text = buildSlackMessage(actionConfig, event);
+  const text = buildSlackMessage(actionConfig, event, triage);
   const response = await client.send(text);
 
   return {

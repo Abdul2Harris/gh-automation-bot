@@ -9,6 +9,9 @@ import {
 import { executeMatchedGitHubActions } from "@/lib/github/action-attempts";
 import { findMatchingRules } from "@/lib/rules/rule-engine";
 import { executeMatchedSlackActions } from "@/lib/slack/action-attempts";
+import { resolveEventTriage, type StoredTriage } from "@/lib/ai/event-triage";
+import { usesAiGitHubContent } from "@/lib/github/github-action";
+import { usesAiSlackContent } from "@/lib/slack/slack-action";
 
 export async function processWebhookEvent(
   eventId: string,
@@ -30,18 +33,34 @@ export async function processWebhookEvent(
         ? await findMatchingRules(eventId, result.event)
         : [];
     const actionAttempts = [];
+    let triage: StoredTriage | undefined;
 
     if (result.outcome === "normalized") {
+      const needsTriage = matchedRules.some((rule) =>
+        rule.actions.some((action) =>
+          usesAiGitHubContent(action.type, action.config) ||
+          (action.type === "SLACK_NOTIFICATION" && usesAiSlackContent(action.config)),
+        ),
+      );
+      if (needsTriage) {
+        try {
+          triage = await resolveEventTriage(eventId, result.event);
+        } catch {
+          // The persisted triage error is surfaced in the dashboard; custom actions still run.
+        }
+      }
       actionAttempts.push(
         ...(await executeMatchedGitHubActions(
           eventId,
           result.event,
           matchedRules,
+          triage,
         )),
         ...(await executeMatchedSlackActions(
           eventId,
           result.event,
           matchedRules,
+          triage,
         )),
       );
     }

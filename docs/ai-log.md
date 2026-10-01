@@ -24,11 +24,19 @@ Do not invent entries. Add notes only when something meaningful happens.
 - 2026-10-01: Refactored automation rules to own ordered `AutomationRuleAction` records. Existing single actions and historical attempts are migrated and relinked, while new action idempotency uses the event and rule-action IDs. Added authenticated, same-origin rule APIs with Zod validation and installation/repository ownership checks, plus dashboard controls to create, enable, disable, and delete multi-action rules.
 - 2026-10-01: Added manual retry handling on the existing action-attempt row. Retryable external failures can be atomically claimed and rerun by an authorized user; retry count and timestamp are recorded. Invalid action configuration, missing Slack setup, skipped actions, deleted rule actions, successful actions, and concurrent retries are rejected.
 - 2026-10-01: Capped manual action retries at five. The database claim checks the retry count atomically; after the fifth failed retry, the attempt becomes non-retryable and shows a retry-limit message directing the user to check permissions or configuration.
+- 2026-10-01: Added optional Gemini triage for matched issue and pull-request rules. A single structured response per webhook is Zod-validated and persisted with its summary, suggested priority, suggested labels, GitHub comment, Slack message, model, and failure state. Existing deterministic rule matching still decides whether an action runs; AI suggested labels remain informational and are not applied automatically.
+- 2026-10-01: Rule comment and Slack actions now support either custom or AI-generated content while retaining backward compatibility with existing rule configuration. AI failure does not prevent custom actions from running, and failed AI-backed actions remain visible and manually retryable.
 
 ## Developer Decisions
 
 - 2026-09-30: Before each new milestone, explain the complete implementation and wait until the developer confirms understanding and explicitly approves proceeding.
 - 2026-10-01: The developer decided that one matched automation rule should perform multiple actions, such as adding a GitHub label, posting a GitHub comment, and notifying Slack, instead of requiring separate rules for each destination.
+- 2026-10-01: The developer approved Gemini-generated GitHub comments and Slack messages after deterministic rule matching, with one AI call reused for both destinations and triage details shown in the dashboard.
+
+## Production Verification
+
+- 2026-10-01: The developer confirmed the Vercel deployment milestone was completed. In production, a GitHub webhook was received and verified, the event was stored, an issue rule matched, a GitHub label was added automatically, bot-triggered events were ignored without an automation loop, and the dashboard displayed the complete history.
+- 2026-10-01: The developer also verified pull-request-opened automation and push-event processing in production. A push rule sent its Slack notification, while GitHub label/comment actions were correctly not applied to the push. The developer checked dashboard failure visibility and confirmed no secrets were logged or exposed; no production failure occurred during this test run.
 
 ## Alternatives Rejected
 
@@ -48,6 +56,7 @@ Do not invent entries. Add notes only when something meaningful happens.
 - 2026-09-30: ESLint initially scanned the generated Prisma client and reported errors in generated code.
 - 2026-09-30: GitHub App JWT authentication initially failed because the Windows clock was about two minutes ahead; syncing the system clock fixed credential verification.
 - 2026-10-01: Prisma returned `P2002` for a duplicate webhook delivery, but `instanceof PrismaClientKnownRequestError` failed across the bundled runtime boundary. Deduplication now uses a guarded `code === "P2002"` check.
+- 2026-10-01: Prisma client generation initially failed because a background Next.js process locked the Windows query-engine DLL. Stopping only the project development processes allowed generation to complete.
 
 ## Incorrect Assumptions
 

@@ -113,6 +113,16 @@ const eventColumns: ColumnsType<EventRow> = [
     render: (v: string) => <StatusTag status={v} />,
   },
   {
+    title: "AI triage",
+    key: "triage",
+    render: (_, row) => row.triage ? (
+      <div className="max-w-72">
+        <div className="mb-1 flex gap-1"><StatusTag status={row.triage.status} />{row.triage.priority ? <Tag color={row.triage.priority === "HIGH" ? "red" : row.triage.priority === "MEDIUM" ? "gold" : "green"}>{readable(row.triage.priority)}</Tag> : null}</div>
+        <Typography.Text className="block text-xs" ellipsis={{ tooltip: row.triage.summary ?? row.triage.errorMessage }}>{row.triage.summary ?? row.triage.errorMessage}</Typography.Text>
+      </div>
+    ) : <span className="text-slate-300">Not requested</span>,
+  },
+  {
     title: "Actions",
     dataIndex: "actionCount",
     key: "actionCount",
