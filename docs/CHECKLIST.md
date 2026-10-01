@@ -132,11 +132,11 @@ Use this checklist to track assignment requirements and implementation progress 
 
 ## Final Submission
 
-- [ ] Update README
-- [ ] Update `AI_NOTES.md` from real `docs/ai-log.md` entries
-- [ ] Confirm `.env` is not committed
-- [ ] Confirm `.env.example` contains placeholders only
-- [ ] Run final lint/type/test checks
-- [ ] Document how to run and test the project
-- [ ] Suggest final Git commit
+- [x] Update README
+- [x] Update `AI_NOTES.md` from real `docs/ai-log.md` entries
+- [x] Confirm `.env` is not committed
+- [x] Confirm `.env.example` contains placeholders only
+- [x] Run final lint/type/test checks
+- [x] Document how to run and test the project
+- [x] Suggest final Git commit
 

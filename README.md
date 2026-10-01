@@ -1,138 +1,234 @@
 # Event-Driven GitHub Automation Bot
 
-A take-home project for receiving GitHub App webhooks, evaluating automation rules, taking GitHub and Slack actions, and showing the results in an authenticated dashboard.
+A full-stack GitHub App that receives repository events, evaluates configurable automation rules, performs GitHub and Slack actions, and records the complete execution history in an authenticated dashboard.
 
-## Local setup
+## Features
 
-Requirements: Node.js 20.9 or newer and npm.
+- GitHub OAuth login with database-backed, HttpOnly sessions
+- GitHub App installation and multi-repository synchronization
+- Signed webhook handling for issues, pull requests, and pushes
+- Database-level delivery deduplication
+- Repository-specific and installation-wide automation rules
+- Case-insensitive title and body conditions
+- Multiple ordered actions in one rule
+- GitHub label and comment actions
+- Slack Incoming Webhook notifications
+- Optional Gemini issue and pull-request triage
+- Action failure history and up to five authorized manual retries
+- Rule creation, editing, enable/disable, and deletion with optimistic UI
+- Authenticated Ant Design dashboard for events, actions, rules, and repositories
+
+## Architecture
+
+The project is one Next.js App Router application. It does not require a separate Express server or persistent worker.
+
+```text
+GitHub OAuth / App installation
+            |
+            v
+Next.js Route Handlers -----> Neon PostgreSQL via Prisma
+            |
+GitHub webhook (raw body)
+            |
+HMAC verification -> persistence/deduplication -> normalization
+            |
+rule evaluation -> optional Gemini triage -> GitHub / Slack actions
+            |
+action attempts, outcomes, and errors -> authenticated dashboard
+```
+
+Important module boundaries:
+
+- `src/app`: pages and Route Handlers
+- `src/lib/auth`: sessions and GitHub OAuth
+- `src/lib/github`: GitHub App clients, webhook verification, and actions
+- `src/lib/events`: webhook normalization, persistence, and processing
+- `src/lib/rules`: rule validation, evaluation, and management
+- `src/lib/slack`: Slack formatting and delivery
+- `src/lib/ai`: Gemini triage and model fallback
+- `src/lib/dashboard`: authorized dashboard data access
+- `src/lib/db`: shared Prisma client
+- `src/components/dashboard`: Ant Design dashboard UI
+
+## Technology
+
+- Next.js 16 App Router, React 19, and TypeScript
+- Tailwind CSS and Ant Design
+- Neon PostgreSQL and Prisma ORM
+- GitHub Apps and Octokit
+- Slack Incoming Webhooks
+- Google Gemini API
+- Zod
+- Vercel
+
+## Local Setup
+
+Requirements:
+
+- Node.js 20.9 or newer
+- npm
+- Neon PostgreSQL database
+- GitHub App
+
+Install dependencies and create the local environment file:
 
 ```bash
 npm install
-cp .env.example .env.local
+copy .env.example .env
+```
+
+On macOS or Linux, use `cp .env.example .env` instead.
+
+Generate Prisma Client, apply committed migrations, and start Next.js:
+
+```bash
+npm run db:generate
+npm run db:deploy
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
 
-Configure the GitHub App callback URL as
-`http://localhost:3000/api/auth/github/callback`. Sign in from the home page;
-successful authentication redirects to the protected `/dashboard` page.
+## Environment Variables
 
-From the dashboard, **Connect repositories** opens the GitHub App installation
-page. After repository selection, GitHub returns through the OAuth callback;
-the app verifies the user's installation access, synchronizes the selected
-repositories, and displays them in the dashboard table.
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `APP_URL` | Yes | Application origin, such as `http://localhost:3000` |
+| `AUTH_SECRET` | Yes | At least 32 random characters for authentication state |
+| `DATABASE_URL` | Yes | Pooled Neon PostgreSQL runtime URL |
+| `DIRECT_URL` | Yes | Direct Neon URL used by Prisma migrations |
+| `GITHUB_APP_ID` | Yes | GitHub App numeric ID |
+| `GITHUB_CLIENT_ID` | Yes | GitHub App OAuth client ID |
+| `GITHUB_CLIENT_SECRET` | Yes | GitHub App OAuth client secret |
+| `GITHUB_PRIVATE_KEY` | Yes | Complete PEM private key, including BEGIN/END lines |
+| `GITHUB_WEBHOOK_SECRET` | Yes | Shared webhook secret of at least 32 characters |
+| `SLACK_WEBHOOK_URL` | Optional | Server-only Slack Incoming Webhook URL |
+| `GEMINI_API_KEY` | Optional | Server-only Gemini API key |
 
-Environment values are validated through `src/lib/env.ts` when server integrations first access them. Keep real credentials in the ignored `.env` file; only placeholders belong in `.env.example`.
+For hosted environments, preserve private-key line breaks using `\n` if multiline values are not supported. Never prefix secrets with `NEXT_PUBLIC_`.
 
-For Neon, `DATABASE_URL` is the pooled runtime connection and `DIRECT_URL` is the direct connection used by Prisma migrations.
+## GitHub App Setup
 
-## Quality checks
+Follow [docs/GITHUB_APP_SETUP.md](docs/GITHUB_APP_SETUP.md).
 
-```bash
-npm run lint
-npm run typecheck
-npm run build
-npm run db:check
-npm run test:webhooks
-npm run test:webhook-persistence
-npm run test:events
-npm run test:rules
-npm run test:rule-input
-npm run test:github-actions
-npm run test:slack
+Use these URLs, replacing `APP_URL` with the deployed HTTPS origin:
+
+```text
+Homepage: APP_URL
+Callback: APP_URL/api/auth/github/callback
+Webhook:  APP_URL/api/github/webhooks
 ```
 
-While signed out, `/dashboard` redirects to the login screen and
-`/api/auth/session` returns HTTP 401. While signed in, the session endpoint
-returns the current public profile fields.
+Required repository permissions:
 
-The authenticated dashboard shows repository counts and the 100 most recent
-webhook events, action attempts, and rules available through the signed-in
-user's GitHub App installations. Event and action tables include status filters,
-and failed actions display their stored error message. Raw webhook payloads and
-integration secrets are never passed to the client component.
+- Contents: Read-only
+- Issues: Read and write
+- Metadata: Read-only
+- Pull requests: Read and write
 
-Retryable failed actions show a **Retry** button in the Actions tab. A retry is
-ownership-checked, atomically claimed to prevent concurrent execution, and
-updates the existing attempt with its retry count, latest result, and timestamp.
-Configuration failures and missing integration setup must be corrected instead
-of retried. Manual retries are capped at five; after the fifth failed retry the
-action remains failed and the Retry control is removed.
+Subscribe to Issues, Pull request, Push, Installation, and Installation repositories events. Use the same webhook secret in GitHub and the application environment.
 
-## GitHub webhooks
-
-The webhook receiver is `POST /api/github/webhooks`. It validates
-`X-GitHub-Delivery`, `X-GitHub-Event`, and `X-Hub-Signature-256` against the
-unchanged request body before parsing JSON. Configure the same random
-`GITHUB_WEBHOOK_SECRET` in GitHub App settings and the application environment.
-
-`npm run test:webhooks` checks GitHub's documented HMAC-SHA256 test vector and
-rejects tampered or malformed signatures.
-
-With the development server running, `npm run test:webhook-persistence` sends
-one signed delivery twice, verifies that Neon stores exactly one event, and
-removes its temporary test record.
-
-`npm run test:events` verifies normalization for issue opened, pull request
-opened, and push payloads, plus unsupported actions, bot events, and malformed
-payload handling.
-
-`npm run test:rules` verifies trigger matching, case-insensitive title/body
-matching, repository scoping, disabled rules, and trigger-only push rules.
-
-`npm run test:rule-input` verifies that one rule can contain several distinct
-GitHub and Slack actions while rejecting duplicate action types and invalid push
-conditions. Rules can be created, enabled, disabled, and deleted from the Rules
-tab; every write verifies installation and repository access.
-
-`npm run test:github-actions` uses a mocked GitHub client to verify label and
-comment execution without changing a real repository. Label rules use
-`{ "labels": ["bug"] }`; comment rules use `{ "body": "Message" }` as their
-`actionConfig`. Each execution is recorded in `ActionAttempt`, and the database
-prevents the same event/rule/action combination from running twice.
-
-`npm run test:slack` verifies formatted issue, pull request, and push
-notifications with a mocked Slack client. Set `SLACK_WEBHOOK_URL` only in the
-server environment. Slack rule configuration can be `{}` or contain an optional
-safe prefix such as `{ "message": "Automation alert" }`; the secret webhook URL
-is never stored in a rule or action attempt.
-
-## Database commands
-
-```bash
-npm run db:generate
-npm run db:migrate -- --name describe_your_change
-npm run db:status
-npm run db:studio
-```
-
-Use `npm run db:deploy` to apply committed migrations in production.
-
-## GitHub App check
-
-After completing [the GitHub App setup](docs/GITHUB_APP_SETUP.md), run:
+Verify the configured credentials:
 
 ```bash
 npm run github:check
 ```
 
-## Stack
+## Rules and Actions
 
-- Next.js App Router, React, and TypeScript
-- Tailwind CSS
-- Ant Design with App Router style registration
-- Zod environment validation
-- Neon PostgreSQL with Prisma ORM
-- Octokit GitHub App client
-- Planned: GitHub App registration and flows, Slack Incoming Webhooks, and optional Gemini triage
+A rule is scoped to one repository or every repository in an installation. Issue and pull-request rules may match the title, body, or either field. Push rules are trigger-only.
 
-## Free-tier verification
+A rule can contain each supported action once:
 
-Verified on 2026-09-30. Usage limits apply, but each selected external service has a zero-cost starting path:
+- Add GitHub labels
+- Post a GitHub comment
+- Send a Slack notification
 
-- [GitHub Free](https://github.com/pricing) is $0 and supports the repositories used by a GitHub App.
-- [Neon Free](https://neon.com/pricing) provides a $0 serverless PostgreSQL tier.
-- [Slack Free](https://slack.com/pricing/free) supports custom app installations; Incoming Webhooks are a free Slack platform feature.
-- [Vercel Hobby](https://vercel.com/docs/plans) is free for personal projects and pauses at its included usage limit.
-- [Gemini API billing](https://ai.google.dev/gemini-api/docs/billing) starts new accounts on the optional Free Tier; billing is linked only to upgrade.
+Comment and Slack content may be custom or Gemini-generated. Suggested AI labels and priorities are informational; repository labels are applied only from deterministic rule configuration.
+
+## Gemini Triage
+
+Gemini runs only when a matched comment or Slack action selects AI-generated content. Issue and pull-request text is treated as untrusted input. One structured result is reused across all AI-enabled actions for the event and persisted with its summary, suggested priority, suggested labels, GitHub comment, Slack message, model, and processing status.
+
+The model sequence is `gemini-3.8-flash`, `gemini-3.5-flash`, then `gemini-2.5-flash`. Each model is attempted once before retrying the complete sequence with bounded backoff.
+
+## Security and Reliability
+
+- Webhooks are verified against the unchanged raw body using HMAC-SHA256.
+- Signatures are compared with a constant-time operation.
+- `X-GitHub-Delivery` has a database `UNIQUE` constraint.
+- Events are saved before external actions run.
+- Each event/rule-action combination is executed at most once.
+- Bot-generated events are ignored to prevent automation loops.
+- Dashboard queries and writes verify installation ownership server-side.
+- Session tokens are random; only their SHA-256 hashes are stored in Neon.
+- Session cookies are HttpOnly, same-site, and secure in production.
+- Secrets and raw webhook payloads are not sent to client components.
+- External-action failures remain visible and retryable where appropriate.
+
+## Testing
+
+Run the complete local verification suite:
+
+```bash
+npm run lint
+npm run typecheck
+npm run test:webhooks
+npm run test:events
+npm run test:rules
+npm run test:rule-input
+npm run test:github-actions
+npm run test:slack
+npm run test:ai
+npm run build
+```
+
+Database and integration checks:
+
+```bash
+npm run db:check
+npm run db:status
+npm run github:check
+```
+
+With the development server running, `npm run test:webhook-persistence` sends signed local test deliveries, verifies processing and deduplication, and removes its temporary data.
+
+Mocked unit tests do not modify GitHub or Slack. Final end-to-end verification requires the deployed webhook URL and a real test repository.
+
+## Deployment
+
+1. Import the repository into Vercel.
+2. Add all required environment variables.
+3. Apply migrations with `npm run db:deploy`.
+4. Deploy the application.
+5. Configure the production callback and webhook URLs in the GitHub App.
+6. Install the GitHub App on selected repositories.
+7. Create a rule and open a matching issue or pull request.
+8. Confirm the event, action results, GitHub changes, Slack notification, and optional AI triage in the dashboard.
+
+The webhook processing design is serverless-compatible and does not depend on a continuously running process.
+
+## Database Commands
+
+```bash
+npm run db:generate
+npm run db:migrate -- --name describe_your_change
+npm run db:deploy
+npm run db:status
+npm run db:studio
+```
+
+## Project Documentation
+
+- [Implementation checklist](docs/CHECKLIST.md)
+- [GitHub App setup](docs/GITHUB_APP_SETUP.md)
+- [AI development log](docs/ai-log.md)
+- [AI usage notes](AI_NOTES.md)
+
+## Known Limitations
+
+- Only opened issues and opened pull requests are automated initially.
+- Push rules do not perform GitHub label or comment actions.
+- Retry processing is manual and capped at five retries per action.
+- The dashboard shows the 100 most recent events, actions, and rules.
+- Gemini output is probabilistic and may occasionally fail or vary; deterministic rule matching remains the automation boundary.

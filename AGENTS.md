@@ -1,11 +1,5 @@
 # Event-Driven GitHub Automation Bot
 
-This repository is for a take-home project called **Event-Driven GitHub Automation Bot**.
-
-Deadline: **October 1, 2026 at 11:59 PM IST**.
-
-These instructions are persistent context for AI assistants working on the project. Follow them unless the developer explicitly changes a decision.
-
 ## Project Goal
 
 Build a full-stack Event-Driven GitHub Automation Bot.
