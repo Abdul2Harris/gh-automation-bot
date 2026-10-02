@@ -166,6 +166,23 @@ The model sequence is `gemini-3.8-flash`, `gemini-3.5-flash`, then `gemini-2.5-f
 - Secrets and raw webhook payloads are not sent to client components.
 - External-action failures remain visible and retryable where appropriate.
 
+## Reviewer Testing
+
+Live application: [**gh-automation-bot.vercel.app**](https://gh-automation-bot.vercel.app/)
+
+No shared or throwaway credentials are required. Each reviewer can safely use their own GitHub account and a temporary repository; dashboard data is restricted to GitHub App installations that the signed-in user can access.
+
+1. Open the live application and choose **Sign in with GitHub**.
+2. Install the GitHub App on a temporary repository, or select an existing installation.
+3. Open the **Rules** tab and create a rule for an issue, pull request, or push. For a quick test, create an `Issue opened` rule where the title contains `critical`.
+4. In the connected repository, open a matching issue such as `Critical test issue`.
+5. Return to the dashboard and refresh the page.
+6. Confirm that the event appears under **Events**, the rule appears under **Rules**, and the result appears under **Actions**.
+7. Confirm the configured label or comment on GitHub. Slack and Gemini results appear when those server-side integrations are enabled.
+8. To test failure handling, use the **Retry** control on a retryable failed action. Manual retries are limited to five attempts.
+
+The GitHub App requests repository access only for the selected repositories. Do not use a repository containing sensitive content for evaluation.
+
 ## Testing
 
 Run the complete local verification suite:

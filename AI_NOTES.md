@@ -12,9 +12,9 @@ The detailed chronological record is in [docs/ai-log.md](docs/ai-log.md).
 
 1. **Use one Next.js application instead of a separate Express backend.** Next.js Route Handlers can receive webhooks and serve authenticated APIs while the App Router provides the dashboard. This kept deployment simple on Vercel and avoided maintaining two applications.
 
-2. **Make one rule support multiple actions.** A matched rule can add a label, post a GitHub comment, and notify Slack. This represents one automation policy more naturally than requiring three duplicate rules with the same trigger and condition.
+2. **Make one deterministic rule support multiple actions.** A matched rule can add a label, post a GitHub comment, and notify Slack instead of requiring duplicate rules. Stored conditions still decide when automation runs; Gemini only improves content and provides informational suggestions.
 
-3. **Keep rule matching deterministic and AI output informational.** Stored trigger and text conditions decide when actions run. Gemini can improve the message and suggest priority or labels, but it cannot independently trigger automation or apply suggested labels. This keeps behavior predictable when the model is unavailable or produces an unexpected result.
+3. **Review every milestone and test webhooks locally before production.** I decided that each milestone should be explained and reviewed before implementation. I also suggested creating test scripts that generate signed GitHub-like payloads, allowing signature verification, processing, persistence, and deduplication to be tested locally without waiting for a real GitHub webhook.
 
 ## Hardest Wrong Turn: Gemini 503 Failures
 
